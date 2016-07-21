@@ -39,6 +39,7 @@ from Mailman import Site
 from Mailman import Utils
 
 PROGRAM = sys.argv[0]
+DEF_PATH = '/usr/lib/mailman/'
 
 
 def usage(code, msg=''):
@@ -55,16 +56,16 @@ def usage(code, msg=''):
 def aliases_entries(listname):
     print
     print '# Distribution list %s' % listname 
-    print '%s:             "|/var/lib/mailman/mail/mailman post %s' % (listname, listname)
-    print '%s-admin:       "|/var/lib/mailman/mail/mailman admin %s' % (listname, listname)
-    print '%s-bounces:     "|/var/lib/mailman/mail/mailman bounces %s' % (listname, listname)
-    print '%s-confirm:     "|/var/lib/mailman/mail/mailman confirm %s' % (listname, listname)
-    print '%s-join:        "|/var/lib/mailman/mail/mailman join %s' % (listname, listname)
-    print '%s-leave:       "|/var/lib/mailman/mail/mailman leave %s' % (listname, listname)
-    print '%s-owner:       "|/var/lib/mailman/mail/mailman owner %s' % (listname, listname)
-    print '%s-request:     "|/var/lib/mailman/mail/mailman request %s' % (listname, listname)
-    print '%s-subscribe:   "|/var/lib/mailman/mail/mailman subscribe %s' % (listname, listname)
-    print '%s-unsubscribe: "|/var/lib/mailman/mail/mailman unsubscribe %s' % (listname, listname)
+    print '%s:             "|/var/lib/mailman/mail/mailman post %s"' % (listname, listname)
+    print '%s-admin:       "|/var/lib/mailman/mail/mailman admin %s"' % (listname, listname)
+    print '%s-bounces:     "|/var/lib/mailman/mail/mailman bounces %s"' % (listname, listname)
+    print '%s-confirm:     "|/var/lib/mailman/mail/mailman confirm %s"' % (listname, listname)
+    print '%s-join:        "|/var/lib/mailman/mail/mailman join %s"' % (listname, listname)
+    print '%s-leave:       "|/var/lib/mailman/mail/mailman leave %s"' % (listname, listname)
+    print '%s-owner:       "|/var/lib/mailman/mail/mailman owner %s"' % (listname, listname)
+    print '%s-request:     "|/var/lib/mailman/mail/mailman request %s"' % (listname, listname)
+    print '%s-subscribe:   "|/var/lib/mailman/mail/mailman subscribe %s"' % (listname, listname)
+    print '%s-unsubscribe: "|/var/lib/mailman/mail/mailman unsubscribe %s"' % (listname, listname)
     print
 
 def main():
@@ -98,19 +99,14 @@ def main():
     if verbose:
         print 'Renaming list %s to %s.' % (oldlistname, newlistname)
 
-    #mlist = MailList.MailList()
-    #mlist.Lock()
+    oldmlist = MailList.MailList(oldlistname)
+    if not oldmlist.Locked():
+       oldmlist.Lock()
     
     oldlistpath = Site.get_listpath(oldlistname)
     lists_path = os.path.dirname(oldlistpath)
     newlistpath = lists_path + '/' + newlistname
 
-
-    #print 'oldlistpath: %s' % (oldlistpath)
-    #print 'list path: %s' % (lists_path)
-    #print 'newlistpath: %s' % (newlistpath)
-
-    # Goyo: descomentar
     os.rename(oldlistpath, newlistpath)
     
 
@@ -127,21 +123,26 @@ def main():
     oldmbox_mbox = newmbox + '/' + oldlistname + '.mbox'
     newmbox_mbox = newmbox + '/' + newlistname + '.mbox'
   
-    #print 'old archive => %s' % (oldarchdir)    
-    #print 'new archive => %s' % (newarchdir)    
-
-    #print 'old mbox => %s' % (oldmbox)    
-    #print 'new mbox => %s' % (newmbox)    
-   
-    #print 'old mbox_mbox => %s' % (oldmbox_mbox)    
-    #print 'new mbox_mbox => %s' % (newmbox_mbox)    
-
-    # Goyo: descomentar
     os.rename(oldarchdir, newarchdir)
     os.rename(oldmbox, newmbox)
-    os.rename(oldmbox_mbox, newmbox_mbox)
-   
-    os.system("arch -wipe %s" % (newlistname))
+
+    if os.path.isfile(oldmbox_mbox): 
+        os.rename(oldmbox_mbox, newmbox_mbox)
+        cmd = DEF_PATH + 'bin/arch --wipe ' + newlistname
+        print cmd
+        os.system(cmd)
+
+    newmlist = MailList.MailList(newlistname)
+    if not newmlist.Locked():
+            newmlist.Lock()
+
+    newmlist.real_name = newlistname
+    newmlist.subject_prefix = '[' + newlistname + ']'
+
+    newmlist.Save()
+
+    if newmlist.Locked():
+       newmlist.Unlock()
 
     print 'Now change aliases file ...'
     print
